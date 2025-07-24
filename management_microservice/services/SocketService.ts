@@ -20,9 +20,7 @@ export const io = new Server(PORT, {
   },
 });
 
-
 export class SocketService {
-
   //   obtiene la apuesta del usuario
   static async getBet(userBets: Bet[], socket: CustomSocket) {
     const newBet: UserBet = {
@@ -42,8 +40,20 @@ export class SocketService {
   }
 
   //   envia resultados del giro de la ruleta
-  static sendSpinResult(result: SpinResult) {
-    io.emit("SPIN_RESULT", result);
+  static async emitSpinResult(spinResult: SpinResult) {
+    io.emit("SPIN_RESULT", spinResult.winningNumber);
+
+    for (const userBalance of spinResult.userBalances) {
+      // Emitir el nuevo balance al socket del usuario
+      const socketId = await RedisService.getUserConnection(userBalance.userId);
+      if (socketId) {
+        SocketService.emitNewBalance(socketId, userBalance.newBalance);
+      }
+    }
+  }
+
+  static emitNewBalance(socketId: string, newBalance: number) {
+    io.to(socketId).emit("NEW_BALANCE", newBalance);
   }
 
   //   emite el estado actual del juego a todos los clientes
@@ -63,6 +73,21 @@ export class SocketService {
 
       console.log("A user connected:", socket.id);
 
+      const user = await RedisService.getSessionInfo(customSocket.handshake.auth.token);
+
+      if (!user) {
+        console.error("User not found for socket:", socket.id);
+        return;
+      }
+
+      customSocket.userId = user.userId;
+      customSocket.username = user.username;
+
+      RedisService.saveUserConnection(
+        customSocket.userId,
+        socket.id
+      );
+
       // Enviar estado actual del juego al usuario que se conecta
       const bets = await RedisService.getBets();
       socket.emit("USER_BETS", bets);
@@ -74,6 +99,7 @@ export class SocketService {
 
       socket.on("disconnect", () => {
         console.log("User disconnected:", socket.id);
+        RedisService.removeUserConnection(customSocket.userId);
       });
     });
   }

@@ -1,6 +1,7 @@
 import { RouletteService } from "./services/RouletteService";
 import { SocketService } from "./services/SocketService";
 import RedisService from "./services/RedisService";
+import { DatabaseService } from "./services/DatabaseService";
 
 export interface GameState {
   phase: "BETTING" | "SPINNING" | "RESULTS";
@@ -114,7 +115,8 @@ export class GameLoop {
     );
 
     // Emitir resultados
-    SocketService.sendSpinResult(spinResults);
+    SocketService.emitSpinResult(spinResults);
+    DatabaseService.updateUserBalances(spinResults);
     SocketService.emitGameState(this.currentState);
 
     console.log(

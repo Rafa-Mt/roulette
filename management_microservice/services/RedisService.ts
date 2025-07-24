@@ -42,6 +42,21 @@ class RedisService {
   async clearBets(): Promise<void> {
     await this.client.del(BETS_KEY);
   }
+
+  async saveUserConnection(
+    userId: number,
+    socketId: string
+  ): Promise<void> {
+    await this.client.set(`user:${userId}:socket`, socketId);
+  }
+
+  async getUserConnection(userId: number): Promise<string | null> {
+    return await this.client.get(`user:${userId}:socket`);
+  }
+
+  async removeUserConnection(userId: number): Promise<void> {
+    await this.client.del(`user:${userId}:socket`);
+  }
 }
 
 export default new RedisService();

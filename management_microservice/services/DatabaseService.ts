@@ -1,5 +1,6 @@
 import Pool from 'pg-pool';
 import { PoolConfig } from 'pg';
+import { SpinResult } from '../types/socket';
 
 const poolConfig: PoolConfig = {
   user: process.env.DB_USER,
@@ -26,5 +27,25 @@ export class DatabaseService {
       console.error('Error getting user balance:', error);
       throw error;
     }
+  }
+
+  static async updateUserBalance(userId: number, newBalance: number): Promise<void> {
+    try {
+      await pool.query(
+        'UPDATE balances SET balance = $1 WHERE user_id = $2',
+        [newBalance, userId]
+      );
+    } catch (error) {
+      console.error('Error updating user balance:', error);
+      throw error;
+    }
+  }
+
+  static async updateUserBalances(spinResult: SpinResult): Promise<void> {
+    // use the updateUserBalance method to update each user's balance
+    const updatePromises = spinResult.userBalances.map(async (userBalance) => {
+      await this.updateUserBalance(userBalance.userId, userBalance.newBalance);
+    });
+    await Promise.all(updatePromises);
   }
 }
