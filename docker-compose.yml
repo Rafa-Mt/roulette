@@ -4,8 +4,7 @@ services:
     image: postgres:17-alpine
     container_name: postgres
     restart: always
-    env_file:
-      ./auth_microservice/.env
+    env_file: ./auth_microservice/.env
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./backend/data_model.sql:/docker-entrypoint-initdb.d/data_model.sql
@@ -37,10 +36,25 @@ services:
     env_file:
       - ./auth_microservice/.env
     ports:
-      - "50051:50051"
+      - "50052:50052"
     depends_on:
       - postgres
       - redis
+    networks:
+      - internal
+
+  balance_microservice:
+    build:
+      context: ./balance_microservice
+      dockerfile: Dockerfile
+    container_name: balance_microservice
+    restart: always
+    env_file:
+      - ./balance_microservice/.env
+    ports:
+      - "50051:50051"
+    depends_on:
+      - postgres
     networks:
       - internal
 

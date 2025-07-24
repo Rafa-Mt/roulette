@@ -15,10 +15,10 @@ def serve():
     server
   )
 
-  server.add_insecure_port('[::]:50051')
+  server.add_insecure_port('[::]:50052')
 
   server.start()
-  print("gRPC Server started on port 50051")
+  print("gRPC Server started on port 50052...")
 
   server.wait_for_termination()
 
