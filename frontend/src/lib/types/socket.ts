@@ -1,9 +1,5 @@
 import type { UserBet } from "./bet";
 
-export interface RouletteParams {
-  RotationVelocity: number;
-}
-
 export interface SpinResult {
   winningNumber: number;
   userBalances: {
