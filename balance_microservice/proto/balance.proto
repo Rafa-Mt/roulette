@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package balance;
+
+service BalanceService {
+  rpc AddBalance(AddBalanceRequest) returns (AddBalanceResponse);
+  rpc GetBalanceByUser(GetBalanceByUserRequest) returns (GetBalanceByUserResponse);
+  rpc UpdateBalance(UpdateBalanceRequest) returns (UpdateBalanceResponse);
+}
+
+message AddBalanceRequest {
+  string user_id = 1;
+  float amount = 2;
+}
+
+message AddBalanceResponse {
+  bool success = 1;
+  string message = 2;
+  float balance = 3;
+}
+
+message GetBalanceByUserRequest {
+  int32 user_id = 1;
+}
+
+message GetBalanceByUserResponse {
+  bool success = 1;
+  string message = 2;
+  float balance = 3;
+}
+
+message UpdateBalanceRequest {
+  int32 user_id = 1;
+  float amount = 2;
+}
+
+message UpdateBalanceResponse {
+  bool success = 1;
+  string message = 2;
+  float balance = 3;
+}
+
