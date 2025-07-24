@@ -21,7 +21,7 @@ export interface Bet {
 }
 
 export interface UserBet {
-  userId: string;
+  userId: number;
   username: string;
   bet: Bet[];
 }

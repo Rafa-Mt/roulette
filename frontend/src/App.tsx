@@ -22,11 +22,15 @@ const COLUMNS = {
 type AuthState = "login" | "register" | "authenticated";
 
 function App() {
+  const handleToggleBetsLock = () => {
+    setAreBetsLocked((prev) => !prev);
+  };
   const [authState, setAuthState] = useState<AuthState>("login");
   const [currentUser, setCurrentUser] = useState<string>("");
-  const [balance, setBalance] = useState(0);
+  const [balance, setBalance] = useState(200000);
   const [isSpinning, setIsSpinning] = useState(false);
   const [bets, setBets] = useState<Bet[]>([]);
+  const [areBetsLocked, setAreBetsLocked] = useState(false);
   const [betAmount, setBetAmount] = useState(100);
   const [lastResult, setLastResult] = useState<{
     number: number;
@@ -103,6 +107,7 @@ function App() {
     setAuthState("login");
     setBalance(0);
     setBets([]);
+    setAreBetsLocked(false);
     setLastResult(null);
     setIsSpinning(false);
   };
@@ -110,6 +115,9 @@ function App() {
   const handlePlaceBet = (bet: Omit<Bet, "amount">) => {
     if (betAmount > balance) {
       alert("Insufficient balance.");
+      return;
+    }
+    if (isSpinning || areBetsLocked) {
       return;
     }
     setBets((prev) => [...prev, { ...bet, amount: betAmount }]);
@@ -135,8 +143,8 @@ function App() {
   };
 
   const handleSpin = () => {
-    if (bets.length === 0) {
-      alert("Please place a bet before spinning.");
+    if (!areBetsLocked || bets.length === 0) {
+      alert("Please place and lock in your bets before spinning.");
       return;
     }
     const totalBet = bets.reduce((sum, b) => sum + b.amount, 0);
@@ -213,6 +221,7 @@ function App() {
     setLastResult({ number: winningNumber, winnings: netWinnings });
     setIsSpinning(false);
     setBets([]);
+    setAreBetsLocked(false);
   };
 
   if (authState === "login") {
@@ -285,9 +294,20 @@ function App() {
               />
             </div>
             <button
-              onClick={handleSpin}
+              onClick={handleToggleBetsLock}
               disabled={isSpinning || bets.length === 0}
               className={isSpinning || bets.length === 0 ? "spin-disabled" : ""}
+            >
+              {areBetsLocked ? "Unlock Bets" : "Lock In Bets"}
+            </button>
+            <button
+              onClick={handleSpin}
+              disabled={isSpinning || !areBetsLocked || bets.length === 0}
+              className={
+                isSpinning || !areBetsLocked || bets.length === 0
+                  ? "spin-disabled"
+                  : ""
+              }
             >
               {isSpinning ? "Spinning..." : "Spin"}
             </button>
@@ -314,32 +334,32 @@ function App() {
         </aside>
       </div>
       <footer className="app-footer">
-        {bets.length > 0 ? (
-          <div className="current-bets-footer">
-            Current Bets:{" "}
-            {Object.values(
-              bets.reduce((acc, b) => {
-                const key =
-                  b.type + (b.number !== undefined ? `_${b.number}` : "");
-                if (!acc[key]) {
-                  acc[key] = { ...b };
-                } else {
-                  acc[key].amount += b.amount;
-                }
-                return acc;
-              }, {} as Record<string, Bet>)
-            )
-              .map(
-                (b) =>
-                  `${b.type}${
-                    b.number !== undefined ? `(${b.number})` : ""
-                  }: $${b.amount}`
+        <div className="current-bets-footer">
+          <strong>
+            Current Bets{areBetsLocked ? " (Locked)" : " (Draft)"}:
+          </strong>{" "}
+          {bets.length > 0
+            ? Object.values(
+                bets.reduce((acc, b) => {
+                  const key =
+                    b.type + (b.number !== undefined ? `_${b.number}` : "");
+                  if (!acc[key]) {
+                    acc[key] = { ...b };
+                  } else {
+                    acc[key].amount += b.amount;
+                  }
+                  return acc;
+                }, {} as Record<string, Bet>)
               )
-              .join(", ")}
-          </div>
-        ) : (
-          <div className="current-bets-footer">No current bets</div>
-        )}
+                .map(
+                  (b) =>
+                    `${b.type}${
+                      b.number !== undefined ? `(${b.number})` : ""
+                    }: $${b.amount}`
+                )
+                .join(", ")
+            : "No bets placed"}
+        </div>
       </footer>
     </div>
   );

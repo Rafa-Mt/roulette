@@ -1,14 +1,13 @@
 from os import getenv
-import jwt
 import bcrypt
-from service.db import User, new_user, get_user_by_email, pg
-from service.redis import session_storage
+from service.db import User, new_user, get_user_by_username
+from service.redis_service import session_storage
 from uuid import uuid4
 from auth_pb2 import LoginResponse, RegisterResponse
 
 class AuthService:
   def Login(self, request, response):
-      user = get_user_by_email(email=request.email)
+      user = get_user_by_username(username=request.username)
 
       if not user:
           print("No se encontro el usuario")
@@ -20,11 +19,11 @@ class AuthService:
 
       # token = jwt.encode({"user_id": user.id}, getenv("JWT_SECRET"), algorithm="HS256")
       redis_token = str(uuid4())
-      session_storage.set(f"session:{redis_token}", user.id)
+      session_storage.set(f"session:{redis_token}", {"user_id": user.id, "username": user.username})
       return LoginResponse(success=True, token=redis_token)
 
   def Register(self, request, response):
-      user = get_user_by_email(email=request.email)
+      user = get_user_by_username(email=request.email)
       if user:
           return RegisterResponse(success=False, message="Usuario ya existe")
 

@@ -3,7 +3,7 @@ import { UserBet } from "./bet";
 export interface SpinResult {
   winningNumber: number;
   userBalances: {
-    userId: string;
+    userId: number;
     newBalance: number;
   }[];
 }
