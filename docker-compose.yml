@@ -5,20 +5,44 @@ services:
     container_name: postgres
     restart: always
     env_file:
-      /env/postgres.env
+      ./auth_microservice/.env
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./backend/data_model.sql:/docker-entrypoint-initdb.d/data_model.sql
+    networks:
+      - internal
+    ports:
+      - "5440:5432"
 
   redis:
     image: redis:8.0.2-alpine
     container_name: redis
     restart: always
-    env_file:
-      /env/redis.env
+    # env_file:
+    #   /env/redis.env
     volumes:
       - redis-data:/data
-      - ./backend/data_model.sql:/docker-entrypoint-initdb.d/data_model.sql
     shm_size: 128mb
+    networks:
+      - internal
+    ports:
+      - "6379:6379"
+
+  auth_microservice:
+    build:
+      context: ./auth_microservice
+      dockerfile: Dockerfile
+    container_name: auth_microservice
+    restart: always
+    env_file:
+      - ./auth_microservice/.env
+    ports:
+      - "50051:50051"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - internal
 
 networks:
   internal:

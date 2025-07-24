@@ -4,6 +4,9 @@ from sqlalchemy.exc import OperationalError, IntegrityError
 from os import getenv
 from pydantic import BaseModel
 from uuid import UUID
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class User(BaseModel):
     id: UUID | str
@@ -11,14 +14,18 @@ class User(BaseModel):
     email: str
     password: str
 
+pg_port = getenv('POSTGRES_PORT') or '5432'
+
 pg = create_engine(
-    f"postgresql://{getenv('POSTGRES_USER')}:{getenv('POSTGRES_PASSWORD')}@{getenv('POSTGRES_HOST')}:{getenv('POSTGRES_PORT')}/{getenv('POSTGRES_DB')}"
+    f"postgresql://{getenv('POSTGRES_USER')}:{getenv('POSTGRES_PASSWORD')}@{getenv('POSTGRES_HOST')}:{int(pg_port)}/{getenv('POSTGRES_DB')}"
 )
 
 metadata = MetaData()
 
-users = Table("user", metadata=metadata, autoload_with=pg)
-balances = Table("balances", metadata=metadata, autoload_with=pg)
+metadata.reflect(bind=pg)
+
+users = metadata.tables["users"]
+balances = metadata.tables["balances"]
 
 Connection = engine.Connection
 
@@ -38,34 +45,51 @@ def query(func):
 
 
 @query
-def new_user(conn: Connection | None, username: str, email: str, password: str):
+def new_user(conn: Connection, username: str, email: str, password: str) -> User:
+    result = conn.execute(
+        users.insert().values(
+            username=username,
+            email=email,
+            password=password
+        ).returning(users.c.user_id, users.c.username, users.c.email)
+    )
     
-    existing = conn.execute(
-        select(users.c.id).where(users.c.email == email)
-    ).fetchone()
-    if existing:
-        raise ValueError("El email ya está registrado")
+    row = result.fetchone()
 
-    result = conn.execute(users.insert().values(username=username, email=email, password=password).returning(users.c.id))
+    if not row:
+        raise ValueError("No se pudo crear el usuario")
 
-    return User.model_validate({
-        "id": result.fetchone()._asdict()["id"],
-        "username": username,
-        "email": email,
-        "password": password
-    })
-
-def get_user_by_email(conn: Connection | None, email: str) -> User | None:
-    row = conn.execute(
-        select(users.c.id, users.c.username, users.c.email) \
-        .where(users.c.email == email)
-    ).fetchone()
-    return User.model_validate(row._asdict()) if row else None
+    return User(
+        id=str(row.user_id),
+        username=row.username,
+        email=row.email,
+        password=password  
+    )
 
 @query
-def get_user_by_id(conn: Connection | None, user_id: UUID) -> User | None:
+def get_user_by_email(conn: Connection, email: str) -> User | None:
+    try:
+        row = conn.execute(
+            users.select().where(
+                users.c.email.ilike(email.strip().lower())
+            )
+        ).fetchone()
+        if not row:
+            return None
+        return User(
+            id=str(row.user_id),
+            username=row.username,
+            email=row.email,
+            password=row.password
+        )
+    except Exception as e:
+        print(f"Error al consultar el usuario por email: {e}")
+        raise ValueError("No se pudo consultar el usuario por email")
+
+@query
+def get_user_by_id(conn: Connection, user_id: UUID) -> User | None:
     row =  conn.execute(
-        select(users.c.id, users.c.username, users.c.email) \
+        select() 
         .where(users.c.id == user_id)
     ).fetchone()
     return User.model_validate(row._asdict()) if row else None
