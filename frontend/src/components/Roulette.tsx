@@ -11,9 +11,10 @@ const FONT_FAMILY = "'Georgia', 'Times New Roman', serif";
 const Roulette = ({ isSpinning, onSpinEnd }: RouletteProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wheelRotation = useRef(0);
+  const rotationVelocity = useRef(0);
   const ballRotation = useRef(0);
-  const ballVelocity = useRef(0);
   const isBallSpinning = useRef(false);
+  const shouldResetWheel = useRef(false);
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
   const [flash, setFlash] = useState(false);
 
@@ -29,9 +30,10 @@ const Roulette = ({ isSpinning, onSpinEnd }: RouletteProps) => {
   useEffect(() => {
     if (isSpinning && !isBallSpinning.current) {
       isBallSpinning.current = true;
-      ballRotation.current = Math.random() * Math.PI * 2;
+      // Ball starts at 0
+      ballRotation.current = 0;
       const direction = Math.random() > 0.5 ? 1 : -1;
-      ballVelocity.current = direction * (Math.random() * 0.13 + 0.13);
+      rotationVelocity.current = direction * (Math.random() * 0.13 + 0.13);
       setHighlightIndex(null);
     }
   }, [isSpinning]);
@@ -136,15 +138,16 @@ const Roulette = ({ isSpinning, onSpinEnd }: RouletteProps) => {
     let animationFrameId: number;
     const animate = () => {
       setCanvasDimensions();
-      wheelRotation.current += 0.005;
-
+      // Only rotate wheel while spinning
       if (isBallSpinning.current) {
-        ballRotation.current += ballVelocity.current;
-        ballVelocity.current *= 0.991;
+        wheelRotation.current += rotationVelocity.current;
+        rotationVelocity.current *= 0.991;
+        // Ball rotates in opposite direction with same velocity
+        ballRotation.current -= rotationVelocity.current;
 
-        if (Math.abs(ballVelocity.current) < 0.008) {
+        if (Math.abs(rotationVelocity.current) < 0.008) {
           isBallSpinning.current = false;
-          ballVelocity.current = 0;
+          rotationVelocity.current = 0;
 
           // Calculate winning index based on the ball's absolute position relative to the wheel
           // The ball's position minus the wheel's rotation gives the absolute position over the wheel
@@ -161,7 +164,20 @@ const Roulette = ({ isSpinning, onSpinEnd }: RouletteProps) => {
           setTimeout(() => {
             setHighlightIndex(null);
             onSpinEnd(winningNumber);
+            shouldResetWheel.current = true;
           }, 1600);
+        }
+      } else if (shouldResetWheel.current) {
+        // Smoothly animate back to 0
+        const distanceToZero = wheelRotation.current % (Math.PI * 2);
+        if (Math.abs(distanceToZero) < 0.01) {
+          wheelRotation.current = 0;
+          shouldResetWheel.current = false;
+        } else {
+          // Determine shortest path to 0 (clockwise or counterclockwise)
+          const targetRotation = distanceToZero > Math.PI ? Math.PI * 2 : 0;
+          const diff = targetRotation - distanceToZero;
+          wheelRotation.current += diff * 0.1; // Smooth interpolation
         }
       }
 
@@ -185,7 +201,7 @@ const Roulette = ({ isSpinning, onSpinEnd }: RouletteProps) => {
 
       drawWheel(wheelRotation.current, highlightIndex, flash);
 
-      if (isBallSpinning.current || ballVelocity.current !== 0) {
+      if (isBallSpinning.current) {
         drawBall(ballRotation.current);
       }
 
