@@ -1,8 +1,4 @@
-import type { UserBet } from "./bet";
-
-export interface RouletteParams {
-  RotationVelocity: number;
-}
+import { UserBet } from "./bet";
 
 export interface SpinResult {
   winningNumber: number;
