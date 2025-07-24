@@ -1,5 +1,4 @@
 from os import getenv
-import jwt
 import bcrypt
 from service.db import User, new_user, get_user_by_username
 from service.redis_service import session_storage
