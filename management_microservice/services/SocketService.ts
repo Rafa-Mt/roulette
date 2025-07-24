@@ -21,6 +21,7 @@ export const io = new Server(PORT, {
 });
 
 export class SocketService {
+  static PORT = PORT;
   //   obtiene la apuesta del usuario
   static async getBet(userBets: Bet[], socket: CustomSocket) {
     const newBet: UserBet = {
