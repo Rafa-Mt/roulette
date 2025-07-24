@@ -1,11 +1,8 @@
 import { Server } from "socket.io";
-import { Bet, UserBet } from "../frontend/src/lib/types/bet";
-import { RouletteController } from "./RouletteController";
+import { SocketService } from "./services/SocketService";
 import { GameLoop } from "./GameLoop";
 
 const PORT = Number(process.env.PORT) || 3000;
-
-export const bets: UserBet[] = [];
 
 export const io = new Server(PORT, {
   cors: {
@@ -16,7 +13,7 @@ export const io = new Server(PORT, {
 });
 
 // Inicializar el controlador de la ruleta
-RouletteController.listen();
+SocketService.listen();
 
 // Iniciar el game loop automático
 GameLoop.start();

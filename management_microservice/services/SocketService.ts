@@ -1,27 +1,38 @@
 import { Socket } from "socket.io";
-import type { Bet, UserBet } from "./types/bet";
-import type { RouletteSpinEvent, SpinResult } from "./types/socket";
-import { bets } from "./index";
-import { io } from "./index";
-import type { GameState } from "./GameLoop";
+import type { Bet, UserBet } from "../types/bet";
+import type { RouletteSpinEvent, SpinResult } from "../types/socket";
+import type { GameState } from "../GameLoop";
+import RedisService from "./RedisService";
+import { Server } from "socket.io";
 
 interface CustomSocket extends Socket {
-  userId: string;
+  userId: number;
   username: string;
 }
 
-export class RouletteController {
-  static io = io;
+const PORT = Number(process.env.PORT) || 4000;
+
+export const io = new Server(PORT, {
+  cors: {
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+});
+
+
+export class SocketService {
 
   //   obtiene la apuesta del usuario
-  static getBet(userBets: Bet[], socket: CustomSocket) {
+  static async getBet(userBets: Bet[], socket: CustomSocket) {
     const newBet: UserBet = {
       userId: socket.userId,
       username: socket.username,
       bet: userBets,
     };
-    bets.push(newBet);
 
+    await RedisService.addBet(newBet);
+    const bets = await RedisService.getBets();
     io.emit("USER_BETS", bets);
   }
 
@@ -41,22 +52,24 @@ export class RouletteController {
   }
 
   //   emite las apuestas actuales a todos los clientes
-  static emitUserBets() {
+  static async emitUserBets() {
+    const bets = await RedisService.getBets();
     io.emit("USER_BETS", bets);
   }
 
   static listen() {
-    io.on("connection", (socket: Socket) => {
+    io.on("connection", async (socket: Socket) => {
       const customSocket = socket as CustomSocket;
 
       console.log("A user connected:", socket.id);
 
       // Enviar estado actual del juego al usuario que se conecta
+      const bets = await RedisService.getBets();
       socket.emit("USER_BETS", bets);
 
       // Manejar nuevas apuestas
       socket.on("NEW_BET", (userBets: Bet[]) => {
-        RouletteController.getBet(userBets, customSocket);
+        SocketService.getBet(userBets, customSocket);
       });
 
       socket.on("disconnect", () => {

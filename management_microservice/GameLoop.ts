@@ -1,6 +1,6 @@
-import { RouletteService } from "./RouletteService";
-import { RouletteController } from "./RouletteController";
-import { bets } from "./index";
+import { RouletteService } from "./services/RouletteService";
+import { SocketService } from "./services/SocketService";
+import RedisService from "./services/RedisService";
 
 export interface GameState {
   phase: "BETTING" | "SPINNING" | "RESULTS";
@@ -51,7 +51,7 @@ export class GameLoop {
   }
 
   // Fase de apuestas (30 segundos)
-  private static startBettingPhase() {
+  private static async startBettingPhase() {
     console.log("💰 BETTING PHASE: Players can place bets");
 
     this.currentState = {
@@ -61,10 +61,10 @@ export class GameLoop {
     };
 
     // Limpiar apuestas anteriores
-    bets.length = 0;
+    await RedisService.clearBets();
 
     // Emitir nuevo estado a todos los clientes
-    RouletteController.emitGameState(this.currentState);
+    SocketService.emitGameState(this.currentState);
 
     // Iniciar countdown
     this.startCountdown(() => this.startSpinningPhase());
@@ -85,19 +85,19 @@ export class GameLoop {
     const winningNumber = RouletteService.generateWinningNumber();
 
     // Emitir inicio del giro
-    RouletteController.startSpin({
+    SocketService.startSpin({
       RotationVelocity: rouletteParams.RotationVelocity,
       spinId: this.currentState.spinId,
     });
 
-    RouletteController.emitGameState(this.currentState);
+    SocketService.emitGameState(this.currentState);
 
     // Iniciar countdown para la fase de giro
     this.startCountdown(() => this.startResultsPhase(winningNumber));
   }
 
   // Fase de resultados (5 segundos)
-  private static startResultsPhase(winningNumber: number) {
+  private static async startResultsPhase(winningNumber: number) {
     console.log(`🎯 RESULTS PHASE: Winning number is ${winningNumber}`);
 
     this.currentState = {
@@ -107,14 +107,15 @@ export class GameLoop {
     };
 
     // Calcular resultados
+    const bets = await RedisService.getBets();
     const spinResults = RouletteService.calculateSpinResults(
       winningNumber,
       bets
     );
 
     // Emitir resultados
-    RouletteController.sendSpinResult(spinResults);
-    RouletteController.emitGameState(this.currentState);
+    SocketService.sendSpinResult(spinResults);
+    SocketService.emitGameState(this.currentState);
 
     console.log(
       `💰 ${bets.length} bets processed. Winning number: ${winningNumber}`
@@ -139,7 +140,7 @@ export class GameLoop {
       this.currentState.timeRemaining--;
 
       // Emitir countdown cada segundo
-      RouletteController.emitGameState(this.currentState);
+      SocketService.emitGameState(this.currentState);
 
       if (this.currentState.timeRemaining <= 0) {
         clearInterval(this.countdownInterval!);
@@ -155,7 +156,8 @@ export class GameLoop {
   }
 
   // Método para obtener estadísticas del juego
-  static getGameStats() {
+  static async getGameStats() {
+    const bets = await RedisService.getBets();
     return {
       currentPhase: this.currentState.phase,
       activeBets: bets.length,

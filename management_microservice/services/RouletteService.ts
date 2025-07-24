@@ -1,5 +1,6 @@
-import type { Bet, UserBet } from "./types/bet";
-import type { SpinResult } from "./types/socket";
+import type { Bet, UserBet } from "../types/bet";
+import type { SpinResult } from "../types/socket";
+import { DatabaseService } from "./DatabaseService";
 
 export interface RouletteParams {
   direction: "clockwise" | "counterclockwise";
@@ -53,7 +54,7 @@ export class RouletteService {
   // Procesar apuesta del usuario
   static processUserBet(
     userBets: Bet[],
-    userId: string,
+    userId: number,
     username: string
   ): UserBet {
     // Validar apuestas (montos, límites, etc.)
@@ -93,9 +94,9 @@ export class RouletteService {
     winningNumber: number,
     allBets: UserBet[]
   ): SpinResult {
-    const userBalances: { userId: string; newBalance: number }[] = [];
+    const userBalances: { userId: number; newBalance: number }[] = [];
 
-    allBets.forEach((userBet) => {
+    allBets.forEach(async (userBet) => {
       let totalWinnings = 0;
 
       userBet.bet.forEach((bet) => {
@@ -104,8 +105,7 @@ export class RouletteService {
       });
 
       // TODO: Obtener balance actual del usuario desde la base de datos
-      // const currentBalance = await getUserBalance(userBet.userId);
-      const currentBalance = 1000; // Placeholder
+      const currentBalance = await DatabaseService.getUserBalance(userBet.userId) || 0;
 
       userBalances.push({
         userId: userBet.userId,
