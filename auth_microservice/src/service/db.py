@@ -11,7 +11,6 @@ load_dotenv()
 class User(BaseModel):
     id: UUID | str
     username: str
-    email: str
     password: str
 
 pg_port = getenv('POSTGRES_PORT') or '5432'
@@ -67,11 +66,11 @@ def new_user(conn: Connection, username: str, email: str, password: str) -> User
     )
 
 @query
-def get_user_by_email(conn: Connection, email: str) -> User | None:
+def get_user_by_username(conn: Connection, username: str) -> User | None:
     try:
         row = conn.execute(
             users.select().where(
-                users.c.email.ilike(email.strip().lower())
+                users.c.username.ilike(username.strip().lower())
             )
         ).fetchone()
         if not row:
@@ -79,12 +78,11 @@ def get_user_by_email(conn: Connection, email: str) -> User | None:
         return User(
             id=str(row.user_id),
             username=row.username,
-            email=row.email,
             password=row.password
         )
     except Exception as e:
-        print(f"Error al consultar el usuario por email: {e}")
-        raise ValueError("No se pudo consultar el usuario por email")
+        print(f"Error al consultar el usuario por username: {e}")
+        raise ValueError("No se pudo consultar el usuario por username")
 
 @query
 def get_user_by_id(conn: Connection, user_id: UUID) -> User | None:
