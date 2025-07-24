@@ -57,6 +57,13 @@ class RedisService {
   async removeUserConnection(userId: number): Promise<void> {
     await this.client.del(`user:${userId}:socket`);
   }
+
+  async removeAllUserConnections(): Promise<void> {
+    const keys = await this.client.keys("user:*:socket");
+    if (keys.length > 0) {
+      await this.client.del(keys);
+    }
+  }
 }
 
 export default new RedisService();

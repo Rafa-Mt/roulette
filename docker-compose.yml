@@ -36,7 +36,7 @@ services:
     env_file:
       - ./auth_microservice/.env
     ports:
-      - "50052:50052"
+      - "50051:50051"
     depends_on:
       - postgres
       - redis
@@ -60,18 +60,36 @@ services:
     networks:
       - internal
 
-  balance_microservice:
+  # balance_microservice:
+  #   build:
+  #     context: ./balance_microservice
+  #     dockerfile: Dockerfile
+  #   container_name: balance_microservice
+  #   restart: always
+  #   env_file:
+  #     - ./balance_microservice/.env
+  #   ports:
+  #     - "50051:50051"
+  #   depends_on:
+  #     - postgres
+  #   networks:
+  #     - internal
+
+  backend:
     build:
-      context: ./balance_microservice
+      context: ./backend
       dockerfile: Dockerfile
-    container_name: balance_microservice
+    container_name: backend
     restart: always
     env_file:
-      - ./balance_microservice/.env
+      - ./backend/.env
     ports:
-      - "50051:50051"
+      - "3000:3000"
     depends_on:
       - postgres
+      - redis
+      - auth_microservice
+      - management_microservice
     networks:
       - internal
 

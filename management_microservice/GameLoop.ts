@@ -42,6 +42,8 @@ export class GameLoop {
 
     if (this.bettingTimer) clearTimeout(this.bettingTimer);
     if (this.countdownInterval) clearInterval(this.countdownInterval);
+    RedisService.clearBets();
+    RedisService.removeAllUserConnections();
 
     this.bettingTimer = null;
     this.countdownInterval = null;
