@@ -43,6 +43,23 @@ services:
       - redis
     networks:
       - internal
+  
+  management_microservice:
+    build:
+      context: ./management_microservice
+      dockerfile: Dockerfile
+    container_name: management_microservice
+    restart: always
+    env_file:
+      - ./management_microservice/.env
+    ports:
+      - "50052:50052"
+    depends_on:
+      - postgres
+      - redis
+      - auth_microservice
+    networks:
+      - internal
 
 networks:
   internal:
