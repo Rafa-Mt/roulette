@@ -1,6 +1,7 @@
 import { io } from "socket.io-client";
-import { queryClient } from "../../main";
-import type { UserChangeEvent } from "../types/socket";
+import { getDefaultStore } from "jotai";
+import { betsAtom } from "../atoms/bets";
+import type { Bet, UserBet } from "../types/bet";
 
 const SERVER_URL =
   import.meta.env.VITE_SOCKET_SERVER_URL || "http://localhost:3000";
@@ -9,6 +10,8 @@ const socket = io(SERVER_URL, {
   transports: ["websocket"],
   autoConnect: false,
 });
+
+const store = getDefaultStore();
 
 export default class SocketController {
   static socket = socket;
@@ -31,19 +34,28 @@ export default class SocketController {
     }
   }
 
-  static handleUserConnectedEvent(event: UserChangeEvent) {
-    const oldUsers = queryClient.getQueryData<UserChangeEvent>(["users"]) || { users: [] };
+  static handleIncomingBets(bets: UserBet[]) {
+    const oldBets = store.get(betsAtom);
+    const newBets = [...oldBets, ...bets];
+    store.set(betsAtom, newBets);
   }
 
-  static on(event: string, callback: (...args: any[]) => void) {
-    socket.on(event, callback);
+  static placeBet(bet: Bet) {
+    if (socket.connected) {
+      socket.emit(SocketEvents.NEW_BET, bet);
+    }
   }
 
-  static emit(event: string, ...args: any[]) {
-    socket.emit(event, ...args);
-  }
-
-  static off(event: string, callback?: (...args: any[]) => void) {
-    socket.off(event, callback);
+  static subscribe() {
+    SocketController.socket.on(SocketEvents.USER_BETS, SocketController.handleIncomingBets);
   }
 }
+
+const SocketEvents = {
+  SPIN_RESULT: "SPIN_RESULT",
+  USER_BETS: "USER_BETS",
+  START_SPIN: "START_SPIN",
+  NEW_BET: "NEW_BET",
+} as const;
+
+type SocketEvents = typeof SocketEvents[keyof typeof SocketEvents];

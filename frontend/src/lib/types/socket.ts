@@ -1,6 +1,4 @@
-export interface RouletteParams {
-  RotationVelocity: number;
-}
+import type { UserBet } from "./bet";
 
 export interface SpinResult {
   winningNumber: number;
@@ -13,4 +11,8 @@ export interface SpinResult {
 export interface RouletteSpinEvent {
   RotationVelocity: number;
   spinId: string;
+}
+
+export interface UserBetEvent {
+  bets: UserBet[];
 }
