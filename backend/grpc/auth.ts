@@ -12,7 +12,8 @@ interface LoginResponse {
 
 interface RegisterResponse {
   success: boolean;
-  message: string;
+  token: string;
+  message?: string; // Optional message for success or failure
 }
 
 interface ValidateTokenResponse {
@@ -75,13 +76,13 @@ const protoDescriptor = grpc.loadPackageDefinition(
 const auth = protoDescriptor.auth;
 
 const client = new auth.AuthService(
-  "localhost:50051",
+  process.env.AUTH_SERVICE_URL || "localhost:50051",
   grpc.credentials.createInsecure()
 );
 
 export const login = (username: string, password: string): Promise<any> => {
   return new Promise((resolve, reject) => {
-    client.Login({ username, password }, (error: any, response: any) => {
+    client.Login({ username, password }, (error: any, response: LoginResponse) => {
       if (error) reject(error);
       resolve(response);
     });
@@ -91,11 +92,11 @@ export const login = (username: string, password: string): Promise<any> => {
 export const register = (
   username: string,
   password: string
-): Promise<any> => {
+): Promise<RegisterResponse> => {
   return new Promise((resolve, reject) => {
     client.Register(
       { username, password },
-      (error: any, response: any) => {
+      (error: any, response: RegisterResponse) => {
         if (error) reject(error);
         resolve(response);
       }

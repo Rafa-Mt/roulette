@@ -2,8 +2,8 @@ grpcio==1.73.1
 protobuf==6.31.1
 pydantic==2.11.7
 python-dotenv==1.1.1
-python_bcrypt==0.3.2
 redis==6.2.0
 SQLAlchemy==2.0.32
 grpcio-tools==1.73.1
 psycopg2-binary
+bcrypt==4.3.0

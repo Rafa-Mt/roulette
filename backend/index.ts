@@ -63,7 +63,7 @@ app.post("/register", async (req, res) => {
 
     res.json({
       success: true,
-      message: response.message,
+      token: response.token,
     });
   } catch (error) {
     console.error("Registration error:", error);
