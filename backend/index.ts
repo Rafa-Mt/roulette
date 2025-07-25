@@ -32,6 +32,7 @@ app.post("/login", async (req, res) => {
       success: true,
       token: response.token,
       balance: response.balance,
+      username: username,
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -66,6 +67,7 @@ app.post("/register", async (req, res) => {
       success: true,
       token: response.token,
       balance: response.balance,
+      username: username,
     });
   } catch (error) {
     console.error("Registration error:", error);

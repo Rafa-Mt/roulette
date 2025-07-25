@@ -21,7 +21,11 @@ class RedisService {
     try {
       const sessionData = await this.client.get(`session:${token}`);
       if (sessionData) {
-        return JSON.parse(sessionData);
+        const data = JSON.parse(sessionData);
+        return {
+          userId: data.user_id,
+          username: data.username,
+        };
       }
       return null;
     } catch (error) {
@@ -33,6 +37,14 @@ class RedisService {
   async addBet(bet: UserBet): Promise<void> {
     await this.client.lPush(BETS_KEY, JSON.stringify(bet));
   }
+  async removeBet(userId: number): Promise<void> {
+    const bets = await this.getBets();
+    const updatedBets = bets.filter((bet) => bet.userId !== userId);
+    await this.client.del(BETS_KEY);
+    for (const bet of updatedBets) {
+      await this.addBet(bet);
+    }
+  }
 
   async getBets(): Promise<UserBet[]> {
     const bets = await this.client.lRange(BETS_KEY, 0, -1);
@@ -43,10 +55,7 @@ class RedisService {
     await this.client.del(BETS_KEY);
   }
 
-  async saveUserConnection(
-    userId: number,
-    socketId: string
-  ): Promise<void> {
+  async saveUserConnection(userId: number, socketId: string): Promise<void> {
     await this.client.set(`user:${userId}:socket`, socketId);
   }
 

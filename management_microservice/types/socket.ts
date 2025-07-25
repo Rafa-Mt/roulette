@@ -9,7 +9,7 @@ export interface SpinResult {
 }
 
 export interface RouletteSpinEvent {
-  RotationVelocity: number;
+  rotationVelocity: number;
   spinId: string;
 }
 

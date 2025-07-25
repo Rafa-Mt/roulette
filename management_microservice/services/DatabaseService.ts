@@ -9,14 +9,23 @@ const poolConfig: PoolConfig = {
   password: process.env.DB_PASSWORD,
   port: Number(process.env.DB_PORT),
 };
+/**
+ * CREATE TABLE IF NOT EXISTS users (
+    user_id SERIAL PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password VARCHAR(200) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    balance: NUMERIC(10, 2) DEFAULT 0.00
+);
 
+ */
 const pool = new Pool(poolConfig);
 
 export class DatabaseService {
   static async getUserBalance(userId: number): Promise<number | null> {
     try {
       const result = await pool.query(
-        'SELECT balance FROM balances WHERE user_id = $1',
+        'SELECT balance FROM users WHERE user_id = $1',
         [userId]
       );
       if (result.rows.length > 0) {
@@ -32,7 +41,7 @@ export class DatabaseService {
   static async updateUserBalance(userId: number, newBalance: number): Promise<void> {
     try {
       await pool.query(
-        'UPDATE balances SET balance = $1 WHERE user_id = $2',
+        'UPDATE users SET balance = $1 WHERE user_id = $2',
         [newBalance, userId]
       );
     } catch (error) {

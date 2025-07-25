@@ -18,13 +18,27 @@ export class GameLoop {
 
   private static bettingTimer: NodeJS.Timeout | null = null;
   private static countdownInterval: NodeJS.Timeout | null = null;
+  private static spinTimer: NodeJS.Timeout | null = null;
+  private static spinStartTime: number = 0;
+  private static actualSpinDuration: number = 0;
   private static isRunning = false;
 
   // Configuración de tiempos (en segundos)
   private static readonly BETTING_TIME = 30;
-  private static readonly SPINNING_TIME = 8;
+  private static readonly SPINNING_TIME = 8; // Default, will be overridden by calculated time
   private static readonly RESULTS_TIME = 5;
+  private static readonly MINIMUM_VELOCITY = 0.008;
+  private static readonly VELOCITY_DAMPENING = 0.991; // Dampen the velocity each frame
 
+  // Function to calculate spin duration based on velocity
+  private static calculateSpinDuration(velocity: number): number {
+    // Calculate how many frames it takes for velocity to reach MINIMUM_VELOCITY
+    const frames =
+      Math.log(this.MINIMUM_VELOCITY / Math.abs(velocity)) /
+      Math.log(this.VELOCITY_DAMPENING);
+    // Convert frames to milliseconds (assuming 60 FPS)
+    return Math.ceil((frames / 60) * 1000);
+  }
   static start() {
     if (this.isRunning) {
       console.log("⚠️ Game loop is already running");
@@ -42,11 +56,13 @@ export class GameLoop {
 
     if (this.bettingTimer) clearTimeout(this.bettingTimer);
     if (this.countdownInterval) clearInterval(this.countdownInterval);
+    if (this.spinTimer) clearTimeout(this.spinTimer);
     RedisService.clearBets();
     RedisService.removeAllUserConnections();
 
     this.bettingTimer = null;
     this.countdownInterval = null;
+    this.spinTimer = null;
   }
 
   static getCurrentState(): GameState {
@@ -73,30 +89,74 @@ export class GameLoop {
     this.startCountdown(() => this.startSpinningPhase());
   }
 
-  // Fase de giro (8 segundos)
+  // Fase de giro (calculated duration based on velocity)
   private static startSpinningPhase() {
     console.log("🌀 SPINNING PHASE: Roulette is spinning");
+    const rouletteParams = RouletteService.generateRouletteParams();
+
+    // Calculate actual spin duration based on velocity
+    this.actualSpinDuration = this.calculateSpinDuration(
+      rouletteParams.rotationVelocity
+    );
+    this.spinStartTime = Date.now();
+
+    // Set initial time remaining (rounded to nearest second for display)
+    const timeRemainingSeconds = Math.ceil(this.actualSpinDuration / 1000);
 
     this.currentState = {
       phase: "SPINNING",
-      timeRemaining: this.SPINNING_TIME,
+      timeRemaining: timeRemainingSeconds,
       spinId: this.currentState.spinId,
     };
 
-    // Generar parámetros del giro
-    const rouletteParams = RouletteService.generateRouletteParams();
-    const winningNumber = RouletteService.generateWinningNumber();
+    // Use the winning number calculated from physics simulation
+    const winningNumber = rouletteParams.winningNumber;
+
+    console.log(
+      `🎯 Calculated winning number: ${winningNumber} (velocity: ${rouletteParams.rotationVelocity})`
+    );
 
     // Emitir inicio del giro
     SocketService.startSpin({
-      RotationVelocity: rouletteParams.RotationVelocity,
+      rotationVelocity: rouletteParams.rotationVelocity,
       spinId: this.currentState.spinId,
     });
 
     SocketService.emitGameState(this.currentState);
 
-    // Iniciar countdown para la fase de giro
-    this.startCountdown(() => this.startResultsPhase(winningNumber));
+    // Use precise timeout for actual spin duration
+    this.spinTimer = setTimeout(() => {
+      this.startResultsPhase(winningNumber);
+    }, this.actualSpinDuration);
+
+    // Start countdown for UI updates
+    this.startSpinCountdown();
+  }
+
+  // Special countdown for spinning phase that calculates remaining time based on elapsed time
+  private static startSpinCountdown() {
+    // Clear any existing countdown
+    if (this.countdownInterval) {
+      clearInterval(this.countdownInterval);
+    }
+
+    this.countdownInterval = setInterval(() => {
+      const elapsed = Date.now() - this.spinStartTime;
+      const remaining = Math.max(0, this.actualSpinDuration - elapsed);
+      const remainingSeconds = Math.ceil(remaining / 1000);
+
+      // Update time remaining (rounded to nearest second)
+      this.currentState.timeRemaining = remainingSeconds;
+
+      // Emit updated state
+      SocketService.emitGameState(this.currentState);
+
+      // Stop countdown when spin is complete
+      if (remaining <= 0) {
+        clearInterval(this.countdownInterval!);
+        this.countdownInterval = null;
+      }
+    }, 1000);
   }
 
   // Fase de resultados (5 segundos)
@@ -111,15 +171,18 @@ export class GameLoop {
 
     // Calcular resultados
     const bets = await RedisService.getBets();
-    const spinResults = RouletteService.calculateSpinResults(
+    const spinResults = await RouletteService.calculateSpinResults(
       winningNumber,
       bets
     );
 
     // Emitir resultados
-    SocketService.emitSpinResult(spinResults);
-    DatabaseService.updateUserBalances(spinResults);
-    SocketService.emitGameState(this.currentState);
+    await SocketService.emitSpinResult(spinResults);
+    await RedisService.clearBets();
+    await SocketService.emitUserBets();
+
+    await DatabaseService.updateUserBalances(spinResults);
+    await SocketService.emitGameState(this.currentState);
 
     console.log(
       `💰 ${bets.length} bets processed. Winning number: ${winningNumber}`

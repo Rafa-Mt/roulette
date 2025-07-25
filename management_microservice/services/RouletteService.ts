@@ -3,8 +3,8 @@ import type { SpinResult } from "../types/socket";
 import { DatabaseService } from "./DatabaseService";
 
 export interface RouletteParams {
-  direction: "clockwise" | "counterclockwise";
-  RotationVelocity: number;
+  rotationVelocity: number;
+  winningNumber: number; // Add the calculated winning number
 }
 
 export interface AuthenticatedUser {
@@ -12,12 +12,65 @@ export interface AuthenticatedUser {
   username: string;
 }
 
+// Roulette wheel configuration (must match frontend)
+const ROULETTE_NUMBERS = [
+  0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24,
+  16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26,
+];
+const ARC = (Math.PI * 2) / ROULETTE_NUMBERS.length;
+const MINIMUM_VELOCITY = 0.008;
+const VELOCITY_DAMPENING = 0.991;
+
 export class RouletteService {
   static generateRouletteParams(): RouletteParams {
+    const direction = Math.random() > 0.5 ? -1 : 1; // -1 for clockwise, 1 for counterclockwise
+    const rotationVelocity = direction * (Math.random() * 0.13 + 0.13);
+
+    // Calculate winning number using same physics as frontend
+    const winningNumber = this.calculateWinningNumber(rotationVelocity);
+
     return {
-      direction: Math.random() > 0.5 ? "clockwise" : "counterclockwise",
-      RotationVelocity: Math.random() * 0.1 + 0.1,
+      rotationVelocity,
+      winningNumber,
     };
+  }
+
+  // Replicate frontend physics to calculate winning number
+  private static calculateWinningNumber(initialVelocity: number): number {
+    let wheelRotation = 0;
+    let ballRotation = 0;
+    let rotationVelocity = initialVelocity;
+    let iterations = 0;
+
+    // Simulate the physics loop until velocity drops below minimum
+    while (Math.abs(rotationVelocity) >= MINIMUM_VELOCITY) {
+      // Apply current velocity to wheel
+      wheelRotation += rotationVelocity;
+      // Dampen the velocity
+      rotationVelocity *= VELOCITY_DAMPENING;
+      // Ball rotates in opposite direction with the NEW damped velocity
+      ballRotation -= rotationVelocity;
+      iterations++;
+    }
+
+    // Calculate winning index based on the ball's absolute position relative to the wheel
+    // The ball's position minus the wheel's rotation gives the absolute position over the wheel
+    const absoluteBallAngle = (ballRotation - wheelRotation) % (Math.PI * 2);
+    const positiveAngle = (absoluteBallAngle + Math.PI * 2) % (Math.PI * 2);
+    let winningIndex = Math.floor(positiveAngle / ARC);
+    if (winningIndex >= ROULETTE_NUMBERS.length) winningIndex = 0;
+
+    const winningNumber = ROULETTE_NUMBERS[winningIndex];
+
+    console.log(
+      `🎲 Physics simulation: velocity=${initialVelocity.toFixed(
+        4
+      )}, iterations=${iterations}, wheelRot=${wheelRotation.toFixed(
+        4
+      )}, ballRot=${ballRotation.toFixed(4)}, winningNumber=${winningNumber}`
+    );
+
+    return winningNumber;
   }
 
   // Validar token JWT (placeholder - conectar con auth microservice)
@@ -90,28 +143,37 @@ export class RouletteService {
   }
 
   // Calcular resultados del giro
-  static calculateSpinResults(
+  static async calculateSpinResults(
     winningNumber: number,
     allBets: UserBet[]
-  ): SpinResult {
+  ): Promise<SpinResult> {
     const userBalances: { userId: number; newBalance: number }[] = [];
 
-    allBets.forEach(async (userBet) => {
+    // Use Promise.all with map instead of forEach to handle async operations
+    const balancePromises = allBets.map(async (userBet) => {
       let totalWinnings = 0;
+      console.log(
+        `Calculating winnings for user ${userBet.userId} with bets:`,
+        userBet.bet
+      );
 
       userBet.bet.forEach((bet) => {
         const winnings = this.calculateBetWinnings(bet, winningNumber);
         totalWinnings += winnings;
       });
 
-      // TODO: Obtener balance actual del usuario desde la base de datos
-      const currentBalance = await DatabaseService.getUserBalance(userBet.userId) || 0;
+      const currentBalance =
+        (await DatabaseService.getUserBalance(userBet.userId)) || 0;
 
-      userBalances.push({
+      return {
         userId: userBet.userId,
         newBalance: currentBalance + totalWinnings,
-      });
+      };
     });
+
+    // Wait for all balance calculations to complete
+    const calculatedBalances = await Promise.all(balancePromises);
+    userBalances.push(...calculatedBalances);
 
     return {
       winningNumber,
@@ -185,10 +247,5 @@ export class RouletteService {
       default:
         return -amount;
     }
-  }
-
-  // Generar número ganador aleatorio
-  static generateWinningNumber(): number {
-    return Math.floor(Math.random() * 37); // 0-36
   }
 }
