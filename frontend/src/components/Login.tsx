@@ -3,9 +3,10 @@ import { useState } from "react";
 interface LoginProps {
   onLogin: (username: string, password: string) => void;
   onSwitchToRegister: () => void;
+  loading: boolean;
 }
 
-const Login = ({ onLogin, onSwitchToRegister }: LoginProps) => {
+const Login = ({ onLogin, onSwitchToRegister, loading }: LoginProps) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
@@ -59,8 +60,8 @@ const Login = ({ onLogin, onSwitchToRegister }: LoginProps) => {
             />
           </div>
 
-          <button type="submit" className="auth-button primary">
-            Login & Play
+          <button type="submit" className="auth-button primary" disabled={loading}>
+            {loading ? "Logging in..." : "Login"}
           </button>
 
           <div className="auth-switch">

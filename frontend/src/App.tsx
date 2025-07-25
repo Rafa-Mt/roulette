@@ -1,105 +1,128 @@
-import { useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import "./App.css";
 import Roulette from "./components/Roulette";
 import BettingTable from "./components/BettingTable";
 import Login from "./components/Login";
 import Register from "./components/Register";
 import type { Bet } from "./types";
-import { RED_NUMBERS, BLACK_NUMBERS } from "./lib/roulette-data";
-import useLogin from "./lib/hooks/api/useLogin";
+import { useLogin, useRegister } from "./lib/hooks/api/useAuth";
 import { authStateAtom } from "./lib/atoms/authState";
+import { userAtom } from "./lib/atoms/user";
+import { betsAtom } from "./lib/atoms/bets";
+import { gameStateAtom } from "./lib/atoms/gameState";
 import { useAtom } from "jotai";
-
-const DOZENS = {
-  "1st 12": Array.from({ length: 12 }, (_, i) => i + 1),
-  "2nd 12": Array.from({ length: 12 }, (_, i) => i + 13),
-  "3rd 12": Array.from({ length: 12 }, (_, i) => i + 25),
-};
-
-const COLUMNS = {
-  col1: [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34],
-  col2: [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35],
-  col3: [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36],
-};
+import { useAtomValue } from "jotai";
+import SocketController from "./lib/controllers/SocketController";
+import type { RouletteSpinEvent } from "./lib/types/game";
 
 function App() {
   const handleToggleBetsLock = () => {
+    const totalBet = bets.reduce((sum, b) => sum + b.amount, 0);
+    if (totalBet > (user?.balance ?? 0)) {
+      alert("Insufficient balance.");
+      return;
+    }
+
+    if (!areBetsLocked) {
+      SocketController.placeBets(bets);
+    } else {
+      SocketController.removeBets();
+    }
+
     setAreBetsLocked((prev) => !prev);
   };
+  const handleClearBets = () => {
+    setBets([]);
+    setAreBetsLocked(false);
+    SocketController.removeBets();
+  };
   const [authState, setAuthState] = useAtom(authStateAtom);
-  const [currentUser, setCurrentUser] = useState<string>("");
-  const [balance, setBalance] = useState(200000);
+  const [user, setUser] = useAtom(userAtom);
   const [isSpinning, setIsSpinning] = useState(false);
   const [bets, setBets] = useState<Bet[]>([]);
+  const allBets = useAtomValue(betsAtom);
+  const gameState = useAtomValue(gameStateAtom);
   const [areBetsLocked, setAreBetsLocked] = useState(false);
   const [betAmount, setBetAmount] = useState(100);
   const [lastResult, setLastResult] = useState<{
     number: number;
     winnings: number;
   } | null>(null);
+  const [balanceMessage, setBalanceMessage] = useState<string | null>(null);
+  const [serverVelocity, setServerVelocity] = useState<number | undefined>(
+    undefined
+  );
 
-  //   useEffect(() => {
-  //   const token = localStorage.getItem('token');
-  //   if (token) {
-  //     // Verify token and get user data
-  //     fetch('/api/auth/verify', {
-  //       headers: { 'Authorization': `Bearer ${token}` }
-  //     })
-  //       .then(res => res.json())
-  //       .then(data => {
-  //         if (data.username) {
-  //           setCurrentUser(data.username);
-  //           setBalance(data.balance);
-  //           setAuthState("authenticated");
-  //         }
-  //       })
-  //       .catch(() => {
-  //         localStorage.removeItem('token');
-  //       });
-  //   }
-  // }, []);
-  const { mutate: login, isPending } = useLogin();
+  const { mutate: login, isPending: loginLoading } = useLogin();
   const handleLogin = (username: string, password: string) => {
     login({ username, password });
   };
 
   const handleLogout = () => {
-    // localStorage.removeItem('token');
-    setCurrentUser("");
     setAuthState("login");
-    setBalance(0);
     setBets([]);
     setAreBetsLocked(false);
     setLastResult(null);
     setIsSpinning(false);
+    setUser(null);
   };
 
-  const handleRegister = (
-    username: string,
-    password: string,
-  ) => {
-    // try {
-    //   const response = await fetch('/api/auth/register', {
-    //     method: 'POST',
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify({ username, password })
-    //   });
-    //   const data = await response.json();
-    //   if (data.token) {
-    //     localStorage.setItem('token', data.token);
-    //     setCurrentUser(data.username);
-    //     setBalance(5000); // New accounts start with $5000
-    //     setAuthState("authenticated");
-    //   }
-    // } catch (err) {
-    //   alert("Registration failed. Please try again.");
-    // }
+  const { mutate: register, isPending: registerLoading } = useRegister();
+  const handleRegister = (username: string, password: string) => {
+    register({ username, password });
   };
 
+  useEffect(() => {
+    console.log(user);
+    if (user) {
+      setAuthState("authenticated");
+    }
+  }, [user, setAuthState]);
 
+  // Set up balance update callback when component mounts
+  useEffect(() => {
+    const handleBalanceUpdate = (oldBalance: number, newBalance: number) => {
+      const difference = newBalance - oldBalance;
+      if (difference > 0) {
+        setBalanceMessage(`You won $${difference}!`);
+      } else if (difference < 0) {
+        setBalanceMessage(`You lost $${Math.abs(difference)}. Keep trying!`);
+      }
+
+      // Clear message after 3 seconds
+      setTimeout(() => {
+        setBalanceMessage(null);
+      }, 3000);
+    };
+
+    const handleSpinStart = (spinEvent: RouletteSpinEvent) => {
+      console.log("Received spin event:", spinEvent);
+      setServerVelocity(spinEvent.rotationVelocity);
+      setIsSpinning(true);
+    };
+
+    const handleSpinResult = (winningNumber: number) => {
+      console.log("Received official spin result:", winningNumber);
+      setLastResult({ number: winningNumber, winnings: 0 }); // winnings updated via balance callback
+      setIsSpinning(false);
+      setBets([]);
+      setAreBetsLocked(false);
+    };
+
+    SocketController.setBalanceUpdateCallback(handleBalanceUpdate);
+    SocketController.setSpinStartCallback(handleSpinStart);
+    SocketController.setSpinResultCallback(handleSpinResult);
+
+    // Cleanup
+    return () => {
+      SocketController.setBalanceUpdateCallback(() => {});
+      SocketController.setSpinStartCallback(() => {});
+      SocketController.setSpinResultCallback(() => {});
+    };
+  }, []);
 
   const handlePlaceBet = (bet: Omit<Bet, "amount">) => {
-    if (betAmount > balance) {
+    if (betAmount > (user?.balance ?? 0)) {
       alert("Insufficient balance.");
       return;
     }
@@ -110,104 +133,38 @@ function App() {
     setLastResult(null);
   };
 
-  const updateBalance = async (newBalance: number) => {
-    // try {
-    //   const token = localStorage.getItem('token');
-    //   await fetch('/api/user/balance', {
-    //     method: 'PUT',
-    //     headers: {
-    //       'Content-Type': 'application/json',
-    //       'Authorization': `Bearer ${token}`
-    //     },
-    //     body: JSON.stringify({ balance: newBalance })
-    //   });
-    //   setBalance(newBalance);
-    // } catch (err) {
-    //   console.error('Failed to update balance:', err);
-    // }
-    setBalance(newBalance);
-  };
+  const gamePhaseMessage = useMemo(() => {
+    const timeRemaining =
+      gameState?.timeRemaining !== undefined
+        ? ` ${Math.floor(gameState.timeRemaining / 60)}:${String(
+            gameState.timeRemaining % 60
+          ).padStart(2, "0")} remaining`
+        : "";
 
-  const handleSpin = () => {
-    if (!areBetsLocked || bets.length === 0) {
-      alert("Please place and lock in your bets before spinning.");
-      return;
+    if (gameState?.phase === "BETTING") {
+      return `Betting is open! Try your luck.${timeRemaining}`;
+    } else if (gameState?.phase === "SPINNING") {
+      return `The wheel is spinning! `;
     }
-    const totalBet = bets.reduce((sum, b) => sum + b.amount, 0);
-    if (totalBet > balance) {
-      alert("Insufficient balance.");
-      return;
-    }
-    setBalance((prev) => prev - totalBet);
-    if (!isSpinning) {
-      setIsSpinning(true);
-      setLastResult(null);
-    }
-  };
+    return `Next round in${timeRemaining}`;
+  }, [gameState]);
+
+  const buttonsDisabled = useMemo(() => {
+    return isSpinning || gameState?.phase !== "BETTING" || bets.length === 0;
+  }, [isSpinning, gameState, bets]);
 
   const handleSpinEnd = async (winningNumber: number) => {
-    let totalWinnings = 0;
-    bets.forEach((bet) => {
-      let betWinnings = 0;
-      if (bet.type === "number" && bet.number === winningNumber)
-        betWinnings = bet.amount * 36;
-      else if (bet.type === "red" && RED_NUMBERS.includes(winningNumber))
-        betWinnings = bet.amount * 2;
-      else if (bet.type === "black" && BLACK_NUMBERS.includes(winningNumber))
-        betWinnings = bet.amount * 2;
-      else if (bet.type === "green" && winningNumber === 0)
-        betWinnings = bet.amount * 36;
-      else if (
-        bet.type === "even" &&
-        winningNumber !== 0 &&
-        winningNumber % 2 === 0
-      )
-        betWinnings = bet.amount * 2;
-      else if (bet.type === "odd" && winningNumber % 2 !== 0)
-        betWinnings = bet.amount * 2;
-      else if (bet.type === "1-18" && winningNumber >= 1 && winningNumber <= 18)
-        betWinnings = bet.amount * 2;
-      else if (
-        bet.type === "19-36" &&
-        winningNumber >= 19 &&
-        winningNumber <= 36
-      )
-        betWinnings = bet.amount * 2;
-      else if (
-        bet.type === "1st 12" &&
-        DOZENS["1st 12"].includes(winningNumber)
-      )
-        betWinnings = bet.amount * 3;
-      else if (
-        bet.type === "2nd 12" &&
-        DOZENS["2nd 12"].includes(winningNumber)
-      )
-        betWinnings = bet.amount * 3;
-      else if (
-        bet.type === "3rd 12" &&
-        DOZENS["3rd 12"].includes(winningNumber)
-      )
-        betWinnings = bet.amount * 3;
-      else if (bet.type === "col1" && COLUMNS.col1.includes(winningNumber))
-        betWinnings = bet.amount * 3;
-      else if (bet.type === "col2" && COLUMNS.col2.includes(winningNumber))
-        betWinnings = bet.amount * 3;
-      else if (bet.type === "col3" && COLUMNS.col3.includes(winningNumber))
-        betWinnings = bet.amount * 3;
-      totalWinnings += betWinnings;
-    });
+    console.log(`Local roulette animation ended with number: ${winningNumber}`);
 
-    const totalBet = bets.reduce((sum, b) => sum + b.amount, 0);
-    const netWinnings = totalWinnings - totalBet;
+    // Reset server velocity for next spin
+    setServerVelocity(undefined);
 
-    if (totalWinnings > 0) {
-      await updateBalance(balance + totalWinnings);
-    }
-
-    setLastResult({ number: winningNumber, winnings: netWinnings });
-    setIsSpinning(false);
-    setBets([]);
-    setAreBetsLocked(false);
+    // Note: We don't update balance here since server handles it via socket events
+    // We don't clear bets or update UI state here since server will send official result
+    // setLastResult({ number: winningNumber, winnings: 0 });
+    // setIsSpinning(false);
+    // setBets([]);
+    // setAreBetsLocked(false);
   };
 
   if (authState === "login") {
@@ -220,6 +177,7 @@ function App() {
           </div>
         </header>
         <Login
+          loading={loginLoading}
           onLogin={handleLogin}
           onSwitchToRegister={() => setAuthState("register")}
         />
@@ -237,6 +195,7 @@ function App() {
           </div>
         </header>
         <Register
+          loading={registerLoading}
           onRegister={handleRegister}
           onSwitchToLogin={() => setAuthState("login")}
         />
@@ -248,23 +207,46 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>WELCOME, {currentUser}!</h1>
+        <h1>WELCOME, {user?.username ?? "Guest"}!</h1>
         <div className="subtitle">
-          Deployed by Tomitomitomi, ILevizzz, Reecs, Frex & Atlas
+          Deployed by Tomitomitomi, DP, ILevizzz, Reecs, Frex & Atlas
         </div>
+        <div className="game-status">
+          <strong>{gamePhaseMessage}</strong>
+        </div>
+        {balanceMessage && (
+          <div
+            className={`balance-message ${
+              balanceMessage.includes("🎉") ? "balance-win" : "balance-loss"
+            }`}
+          >
+            <strong>{balanceMessage}</strong>
+          </div>
+        )}
       </header>
       <div className="wallet-container">
-        <div className="wallet">Your Balance: ${balance}</div>
+        <div className="wallet">Your Balance: ${user?.balance ?? 0}</div>
+        {/* button to add more balance */}
+        <a href="https://stripe.com" target="_blank" rel="noopener noreferrer" className="wallet-logout-btn">
+          Add Balance
+        </a>
         <button onClick={handleLogout} className="wallet-logout-btn">
           Log Out
         </button>
       </div>
       <div className="game-container">
         <main className="game-area">
-          <Roulette isSpinning={isSpinning} onSpinEnd={handleSpinEnd} />
+          <Roulette
+            isSpinning={isSpinning}
+            onSpinEnd={handleSpinEnd}
+            serverVelocity={serverVelocity}
+          />
         </main>
         <aside className="betting-area">
-          <BettingTable onPlaceBet={handlePlaceBet} isSpinning={isSpinning} />
+          <BettingTable
+            onPlaceBet={handlePlaceBet}
+            isDisabled={isSpinning || gameState?.phase !== "BETTING"}
+          />
           <div className="controls">
             <div className="bet-input">
               <label htmlFor="bet-amount" className="bet-label">
@@ -275,32 +257,21 @@ function App() {
                 type="number"
                 value={betAmount}
                 onChange={(e) => setBetAmount(parseInt(e.target.value, 10))}
-                disabled={isSpinning}
+                disabled={isSpinning || gameState?.phase !== "BETTING"}
                 min="1"
               />
             </div>
             <button
               onClick={handleToggleBetsLock}
-              disabled={isSpinning || bets.length === 0}
-              className={isSpinning || bets.length === 0 ? "spin-disabled" : ""}
+              disabled={buttonsDisabled}
+              className={`lock-bets ${buttonsDisabled ? "spin-disabled" : ""}`}
             >
               {areBetsLocked ? "Unlock Bets" : "Lock In Bets"}
             </button>
             <button
-              onClick={handleSpin}
-              disabled={isSpinning || !areBetsLocked || bets.length === 0}
-              className={
-                isSpinning || !areBetsLocked || bets.length === 0
-                  ? "spin-disabled"
-                  : ""
-              }
-            >
-              {isSpinning ? "Spinning..." : "Spin"}
-            </button>
-            <button
-              className="clear-bets"
-              onClick={() => setBets([])}
-              disabled={isSpinning || bets.length === 0}
+              className={`clear-bets ${buttonsDisabled ? "spin-disabled" : ""}`}
+              onClick={handleClearBets}
+              disabled={buttonsDisabled}
             >
               Clear Bets
             </button>
@@ -308,12 +279,7 @@ function App() {
           <div className="game-info">
             {lastResult && (
               <div className="last-result">
-                Winning Number: {lastResult.number}.{" "}
-                {lastResult.winnings > 0
-                  ? `You won $${lastResult.winnings}.`
-                  : lastResult.winnings < 0
-                  ? `You lost $${Math.abs(lastResult.winnings)}.`
-                  : "You broke even."}
+                Winning Number: {lastResult.number}.
               </div>
             )}
           </div>
@@ -345,6 +311,21 @@ function App() {
                 )
                 .join(", ")
             : "No bets placed"}
+        </div>
+        <div className="all-bets-footer">
+          <strong>All Players' Bets:</strong>{" "}
+          {allBets.length > 0
+            ? allBets
+                .flatMap((userBet) =>
+                  userBet.bet.map(
+                    (bet) =>
+                      `${userBet.username}: ${bet.type}${
+                        bet.number !== undefined ? `(${bet.number})` : ""
+                      } - $${bet.amount}`
+                  )
+                )
+                .join(", ")
+            : "No bets from other players"}
         </div>
       </footer>
     </div>

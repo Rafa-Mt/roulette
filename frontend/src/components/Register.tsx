@@ -3,9 +3,10 @@ import { useState } from "react";
 interface RegisterProps {
   onRegister: (username: string, password: string) => void;
   onSwitchToLogin: () => void;
+  loading: boolean;
 }
 
-const Register = ({ onRegister, onSwitchToLogin }: RegisterProps) => {
+const Register = ({ onRegister, onSwitchToLogin, loading }: RegisterProps) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -89,8 +90,8 @@ const Register = ({ onRegister, onSwitchToLogin }: RegisterProps) => {
             />
           </div>
 
-          <button type="submit" className="auth-button primary">
-            Create Account & Start Playing
+          <button type="submit" className="auth-button primary" disabled={loading}>
+            {loading ? "Registering..." : "Create an Account"}
           </button>
 
           <div className="auth-switch">

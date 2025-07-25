@@ -1,12 +1,12 @@
 import { RED_NUMBERS, BLACK_NUMBERS } from "../lib/roulette-data";
-import type { Bet, BetType } from "../types";
+import type { BetType, Bet } from "../lib/types/bet";
 
 interface BettingTableProps {
   onPlaceBet: (bet: Omit<Bet, "amount">) => void;
-  isSpinning: boolean;
+  isDisabled: boolean;
 }
 
-const BettingTable = ({ onPlaceBet, isSpinning }: BettingTableProps) => {
+const BettingTable = ({ onPlaceBet, isDisabled }: BettingTableProps) => {
   const getNumberColor = (n: number) => {
     if (RED_NUMBERS.includes(n)) return "red";
     if (BLACK_NUMBERS.includes(n)) return "black";
@@ -14,7 +14,7 @@ const BettingTable = ({ onPlaceBet, isSpinning }: BettingTableProps) => {
   };
 
   const handleBet = (type: BetType, number?: number) => {
-    if (isSpinning) return;
+    if (isDisabled) return;
     onPlaceBet({ type, number });
   };
 
@@ -25,7 +25,15 @@ const BettingTable = ({ onPlaceBet, isSpinning }: BettingTableProps) => {
   ];
 
   return (
-    <div className="betting-table">
+    <div className={`betting-table ${isDisabled ? "disabled" : ""}`}>
+      {isDisabled && (
+        <div className="betting-table-overlay">
+          <div className="overlay-message">
+            <h3>Betting Closed</h3>
+            <p>Wait for the next betting round</p>
+          </div>
+        </div>
+      )}
       <div className="number-grid-accurate">
         <div className="zero-and-main">
           <div className="bet-area zero" onClick={() => handleBet("green")}>

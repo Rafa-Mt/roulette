@@ -4,11 +4,14 @@ import { ROULETTE_NUMBERS, RED_NUMBERS, ARC } from "../lib/roulette-data";
 interface RouletteProps {
   isSpinning: boolean;
   onSpinEnd: (winningNumber: number) => void;
+  serverVelocity?: number; // Add server velocity prop
 }
 
 const FONT_FAMILY = "'Georgia', 'Times New Roman', serif";
+const MINIMUM_VELOCITY = 0.008;
+const VELOCITY_DAMPENING = 0.991; // Dampen the velocity each frame
 
-const Roulette = ({ isSpinning, onSpinEnd }: RouletteProps) => {
+const Roulette = ({ isSpinning, onSpinEnd, serverVelocity }: RouletteProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wheelRotation = useRef(0);
   const rotationVelocity = useRef(0);
@@ -32,11 +35,20 @@ const Roulette = ({ isSpinning, onSpinEnd }: RouletteProps) => {
       isBallSpinning.current = true;
       // Ball starts at 0
       ballRotation.current = 0;
-      const direction = Math.random() > 0.5 ? 1 : -1;
-      rotationVelocity.current = direction * (Math.random() * 0.13 + 0.13);
+
+      // Use server velocity if provided, otherwise use random velocity
+      if (serverVelocity !== undefined) {
+        console.log("Using server velocity:", serverVelocity);
+        rotationVelocity.current = serverVelocity;
+      } else {
+        console.log("Using fallback random velocity");
+        const direction = Math.random() > 0.5 ? 1 : -1;
+        rotationVelocity.current = direction * (Math.random() * 0.13 + 0.13);
+      }
+
       setHighlightIndex(null);
     }
-  }, [isSpinning]);
+  }, [isSpinning, serverVelocity]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -141,11 +153,11 @@ const Roulette = ({ isSpinning, onSpinEnd }: RouletteProps) => {
       // Only rotate wheel while spinning
       if (isBallSpinning.current) {
         wheelRotation.current += rotationVelocity.current;
-        rotationVelocity.current *= 0.991;
+        rotationVelocity.current *= VELOCITY_DAMPENING;
         // Ball rotates in opposite direction with same velocity
         ballRotation.current -= rotationVelocity.current;
 
-        if (Math.abs(rotationVelocity.current) < 0.008) {
+        if (Math.abs(rotationVelocity.current) < MINIMUM_VELOCITY) {
           isBallSpinning.current = false;
           rotationVelocity.current = 0;
 
