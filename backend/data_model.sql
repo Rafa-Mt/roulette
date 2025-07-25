@@ -4,13 +4,14 @@ CREATE TABLE users (
     username VARCHAR(50) NOT NULL UNIQUE,
     password VARCHAR(200) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    balance: NUMERIC(10, 2) DEFAULT 0.00
 );
 
 -- Table to store user balances
 CREATE TABLE balances (
     balance_id SERIAL PRIMARY KEY,
     user_id INT NOT NULL UNIQUE,
-    balance NUMERIC(10, 2) DEFAULT 0.00,
+    balance NUMERIC(10, 2) DEFAULT 0.00
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );

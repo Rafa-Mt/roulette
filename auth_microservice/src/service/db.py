@@ -9,11 +9,12 @@ from typing import Optional
 
 load_dotenv()
 
-
+INITIAL_BALANCE = 5000
 class User(BaseModel):
     id: UUID | str
     username: str
     password: str
+    balance: float
 
 
 pg_port = getenv("POSTGRES_PORT") or "5432"
@@ -27,7 +28,6 @@ metadata = MetaData()
 metadata.reflect(bind=pg)
 
 users = metadata.tables["users"]
-balances = metadata.tables["balances"]
 
 Connection = engine.Connection
 
@@ -53,20 +53,21 @@ def new_user(conn: Optional[Connection], username: str, password: str) -> User:
         raise ValueError("Connection is required to create a new user")
     result = conn.execute(
         users.insert()
-        .values(username=username, password=password)
-        .returning(users.c.user_id, users.c.username)
+        .values(username=username, password=password, balance=INITIAL_BALANCE)
+        .returning(users.c.user_id, users.c.username, users.c.password, users.c.balance)
     )
+
 
     row = result.fetchone()
 
     if not row:
         raise ValueError("No se pudo crear el usuario")
 
-    return User(id=str(row.user_id), username=row.username, password=password)
+    return User(id=str(row.user_id), username=row.username, password=password, balance=INITIAL_BALANCE)
 
 
 @query
-def get_user_by_username(conn: Optional[Connection], username: str) -> User | None:
+def get_user_by_username(conn: Optional[Connection], username: str):
     if not conn:
         raise ValueError("Connection is required to get user by username")
 
@@ -76,7 +77,8 @@ def get_user_by_username(conn: Optional[Connection], username: str) -> User | No
         ).fetchone()
         if not row:
             return None
-        return User(id=str(row.user_id), username=row.username, password=row.password)
+  
+        return User(id=str(row.user_id), username=row.username, password=row.password, balance=row.balance)
     except Exception as e:
         print(f"Error al consultar el usuario por username: {e}")
         raise ValueError("No se pudo consultar el usuario por username")

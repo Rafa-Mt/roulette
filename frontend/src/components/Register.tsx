@@ -1,13 +1,12 @@
 import { useState } from "react";
 
 interface RegisterProps {
-  onRegister: (username: string, password: string, email: string) => void;
+  onRegister: (username: string, password: string) => void;
   onSwitchToLogin: () => void;
 }
 
 const Register = ({ onRegister, onSwitchToLogin }: RegisterProps) => {
   const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
@@ -16,7 +15,6 @@ const Register = ({ onRegister, onSwitchToLogin }: RegisterProps) => {
 
     if (
       !username.trim() ||
-      !email.trim() ||
       !password.trim() ||
       !confirmPassword.trim()
     ) {
@@ -34,7 +32,7 @@ const Register = ({ onRegister, onSwitchToLogin }: RegisterProps) => {
       return;
     }
 
-    onRegister(username, password, email);
+    onRegister(username, password);
   };
 
   return (
@@ -57,21 +55,6 @@ const Register = ({ onRegister, onSwitchToLogin }: RegisterProps) => {
               onChange={(e) => setUsername(e.target.value)}
               className="auth-input"
               placeholder="Choose a username"
-              required
-            />
-          </div>
-
-          <div className="auth-field">
-            <label htmlFor="reg-email" className="auth-label">
-              Email
-            </label>
-            <input
-              id="reg-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="auth-input"
-              placeholder="Enter your email"
               required
             />
           </div>

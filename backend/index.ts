@@ -31,6 +31,7 @@ app.post("/login", async (req, res) => {
     res.json({
       success: true,
       token: response.token,
+      balance: response.balance,
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -64,6 +65,7 @@ app.post("/register", async (req, res) => {
     res.json({
       success: true,
       token: response.token,
+      balance: response.balance,
     });
   } catch (error) {
     console.error("Registration error:", error);

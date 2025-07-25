@@ -6,6 +6,9 @@ import Login from "./components/Login";
 import Register from "./components/Register";
 import type { Bet } from "./types";
 import { RED_NUMBERS, BLACK_NUMBERS } from "./lib/roulette-data";
+import useLogin from "./lib/hooks/api/useLogin";
+import { authStateAtom } from "./lib/atoms/authState";
+import { useAtom } from "jotai";
 
 const DOZENS = {
   "1st 12": Array.from({ length: 12 }, (_, i) => i + 1),
@@ -19,13 +22,11 @@ const COLUMNS = {
   col3: [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36],
 };
 
-type AuthState = "login" | "register" | "authenticated";
-
 function App() {
   const handleToggleBetsLock = () => {
     setAreBetsLocked((prev) => !prev);
   };
-  const [authState, setAuthState] = useState<AuthState>("login");
+  const [authState, setAuthState] = useAtom(authStateAtom);
   const [currentUser, setCurrentUser] = useState<string>("");
   const [balance, setBalance] = useState(200000);
   const [isSpinning, setIsSpinning] = useState(false);
@@ -57,37 +58,31 @@ function App() {
   //       });
   //   }
   // }, []);
-
+  const { mutate: login, isPending } = useLogin();
   const handleLogin = (username: string, password: string) => {
-    // try {
-    //   const response = await fetch('/api/auth/login', {
-    //     method: 'POST',
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify({ username, password })
-    //   });
-    //   const data = await response.json();
-    //   if (data.token) {
-    //     localStorage.setItem('token', data.token);
-    //     setCurrentUser(data.username);
-    //     setBalance(data.balance); // Server will return saved balance
-    //     setAuthState("authenticated");
-    //   }
-    // } catch (err) {
-    //   alert("Login failed. Please try again.");
-    // }
-    setAuthState("authenticated");
+    login({ username, password });
+  };
+
+  const handleLogout = () => {
+    // localStorage.removeItem('token');
+    setCurrentUser("");
+    setAuthState("login");
+    setBalance(0);
+    setBets([]);
+    setAreBetsLocked(false);
+    setLastResult(null);
+    setIsSpinning(false);
   };
 
   const handleRegister = (
     username: string,
     password: string,
-    email: string
   ) => {
     // try {
     //   const response = await fetch('/api/auth/register', {
     //     method: 'POST',
     //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify({ username, password, email })
+    //     body: JSON.stringify({ username, password })
     //   });
     //   const data = await response.json();
     //   if (data.token) {
@@ -101,16 +96,7 @@ function App() {
     // }
   };
 
-  const handleLogout = () => {
-    // localStorage.removeItem('token');
-    setCurrentUser("");
-    setAuthState("login");
-    setBalance(0);
-    setBets([]);
-    setAreBetsLocked(false);
-    setLastResult(null);
-    setIsSpinning(false);
-  };
+
 
   const handlePlaceBet = (bet: Omit<Bet, "amount">) => {
     if (betAmount > balance) {

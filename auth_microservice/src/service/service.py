@@ -1,10 +1,11 @@
 from os import getenv
 import bcrypt
-from service.db import User, new_user, get_user_by_username
+from service.db import User, new_user, get_user_by_username, INITIAL_BALANCE
 from service.redis_service import session_storage
 from uuid import uuid4
 from auth_pb2 import LoginResponse, RegisterResponse  # type: ignore
 import json
+
 
 
 class AuthService:
@@ -27,19 +28,19 @@ class AuthService:
         session_storage.set(
             f"session:{redis_token}", json.dumps({"user_id": user.id, "username": user.username})
         )
-        return LoginResponse(success=True, token=redis_token)
+        return LoginResponse(success=True, token=redis_token, balance=user.balance)
 
     def Register(self, request, response):
-        user = get_user_by_username(username=request.username)
-        if user:
+        result: tuple[User, float] | None = get_user_by_username(username=request.username)
+        if result is not None:
             return RegisterResponse(success=False, message="Usuario ya existe")
-
+        
         hashed_password = bcrypt.hashpw(request.password.encode("utf-8"), bcrypt.gensalt())
         u: User | None = new_user(username=request.username, password=hashed_password.decode("utf-8"))
 
         redis_token = str(uuid4())
         session_storage.set(f"session:{redis_token}", u.id)
-        return RegisterResponse(success=True, token=redis_token)
+        return RegisterResponse(success=True, token=redis_token, balance=INITIAL_BALANCE, message="Usuario creado exitosamente")
 
     def ValidateToken(self, request, response):
         user_id = session_storage.get(f"session:{request.token}")

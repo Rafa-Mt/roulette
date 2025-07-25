@@ -8,12 +8,14 @@ interface LoginResponse {
   success: boolean;
   token: string | null;
   message?: string;
+  balance?: number; // Optional balance for the user
 }
 
 interface RegisterResponse {
   success: boolean;
   token: string;
   message?: string; // Optional message for success or failure
+  balance?: number; // Optional balance for the user
 }
 
 interface ValidateTokenResponse {

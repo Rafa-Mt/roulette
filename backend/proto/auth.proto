@@ -25,11 +25,14 @@ message LoginRequest {
 message RegisterResponse {
   bool success = 1;
   string token = 2;
+  string message = 3; // Optional message for success or failure
+  float balance = 4; // Optional balance for the user
 }
 
 message LoginResponse {
   bool success = 1;
   string token = 2;
+  float balance = 3; // Optional balance for the user
 }
 
 message ValidateTokenResponse {
