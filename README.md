@@ -86,13 +86,12 @@ Todos los servicios están expuestos a través del puerto 80 (HTTP) y 443 (HTTPS
 
 - El servidor Apache debe estar configurado como proxy inverso para enrutar correctamente `/api`, `/socket.io` y `/docs` a los servicios internos.
 - Cloudflared se encarga de exponer el dominio de forma segura y sin necesidad de abrir puertos públicos.
-- Asegúrate de que las URLs del frontend y las variables de entorno apunten a las rutas correctas en producción.
 
 ---
 
 ## Uso
 
-1. Regístrate y obtén un saldo virtual inicial.
+1. Regístrate y obtén un saldo virtual inicial{;)}.
 2. Realiza apuestas en la ruleta y observa los resultados en tiempo real.
 3. Consulta tu balance y el historial de apuestas.
 4. ¡Compite con otros jugadores conectados!
@@ -141,16 +140,3 @@ docker-compose up docs
 ```
 
 - **En producción:** Accede a la documentación en [https://roulette.decoupled.dev/docs](https://roulette.decoupled.dev/docs)
-
----
-
-## Contribución
-
-¡Las contribuciones son bienvenidas! Por favor, sigue estos pasos:
-
-1. **Fork del repositorio**
-2. **Crea una rama para tu característica o bugfix**
-3. **Realiza tus cambios y pruebas**
-4. **Envía un Pull Request**
-
-Por favor, asegúrate de que tu código sigue las convenciones del proyecto y está bien documentado.
