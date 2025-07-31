@@ -21,7 +21,18 @@ Este proyecto es una aplicación web de ruleta de casino desarrollada con una ar
 
 ## Estructura del repositorio
 
-<!-- Puedes agregar aquí un esquema de carpetas si lo deseas -->
+```
+roulette/
+├── backend/                  # API Gateway y orquestador de microservicios (Express)
+├── frontend/                 # Aplicación web (React + Vite)
+├── auth_microservice/        # Microservicio de autenticación y usuarios (gRPC)
+├── management_microservice/  # Microservicio de lógica de ruleta y apuestas (gRPC, WebSockets)
+├── balance_microservice/     # Microservicio de balance de usuario (gRPC)
+├── docs/                     # Documentación técnica (MkDocs)
+├── docker-compose.yml        # Orquestación de servicios y dependencias
+├── .env*                     # Variables de entorno para cada servicio
+└── ...                       # Otros archivos y configuraciones
+```
 
 ---
 
